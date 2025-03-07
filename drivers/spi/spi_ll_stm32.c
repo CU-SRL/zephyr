@@ -686,7 +686,10 @@ static int spi_stm32_configure(const struct device *dev,
 			    config->frequency,
 			    clock >> 1,
 			    clock >> ARRAY_SIZE(scaler));
-		return -EINVAL;
+		// return -EINVAL;
+		LOG_ERR ("Force frequency to %uHz",
+			clock >> ARRAY_SIZE(scaler));
+	   	br = ARRAY_SIZE(scaler);
 	}
 
 	LL_SPI_Disable(spi);
