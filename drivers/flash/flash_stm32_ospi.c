@@ -180,6 +180,8 @@ struct flash_stm32_ospi_data {
 #if STM32_OSPI_USE_DMA
 	struct stream dma;
 #endif /* STM32_OSPI_USE_DMA */
+	const struct device *cs_gpio_dev;
+	uint32_t cs_gpio_pin;
 };
 
 static inline void ospi_lock_thread(const struct device *dev)
@@ -206,7 +208,9 @@ static int ospi_send_cmd(const struct device *dev, OSPI_RegularCmdTypeDef *cmd)
 
 	dev_data->cmd_status = 0;
 
+	gpio_pin_set(dev_data->cs_gpio_dev, dev_data->cs_gpio_pin, 0);  // PF6 LOW
 	hal_ret = HAL_OSPI_Command(&dev_data->hospi, cmd, HAL_OSPI_TIMEOUT_DEFAULT_VALUE);
+	gpio_pin_set(dev_data->cs_gpio_dev, dev_data->cs_gpio_pin, 1);  // PF6 HIGH
 	if (hal_ret != HAL_OK) {
 		LOG_ERR("%d: Failed to send OSPI instruction", hal_ret);
 		return -EIO;
@@ -228,6 +232,7 @@ static int ospi_read_access(const struct device *dev, OSPI_RegularCmdTypeDef *cm
 
 	dev_data->cmd_status = 0;
 
+	gpio_pin_set(dev_data->cs_gpio_dev, dev_data->cs_gpio_pin, 0);
 	hal_ret = HAL_OSPI_Command(&dev_data->hospi, cmd, HAL_OSPI_TIMEOUT_DEFAULT_VALUE);
 	if (hal_ret != HAL_OK) {
 		LOG_ERR("%d: Failed to send OSPI instruction", hal_ret);
@@ -245,6 +250,8 @@ static int ospi_read_access(const struct device *dev, OSPI_RegularCmdTypeDef *cm
 	}
 
 	k_sem_take(&dev_data->sync, K_FOREVER);
+	gpio_pin_set(dev_data->cs_gpio_dev, dev_data->cs_gpio_pin, 1);  // PF6 HIGH
+
 
 	return dev_data->cmd_status;
 }
@@ -269,6 +276,7 @@ static int ospi_write_access(const struct device *dev, OSPI_RegularCmdTypeDef *c
 		return -EIO;
 	}
 
+	gpio_pin_set(dev_data->cs_gpio_dev, dev_data->cs_gpio_pin, 0);  // PF6 LOW
 	hal_ret = HAL_OSPI_Command(&dev_data->hospi, cmd, HAL_OSPI_TIMEOUT_DEFAULT_VALUE);
 	if (hal_ret != HAL_OK) {
 		LOG_ERR("%d: Failed to send OSPI instruction", hal_ret);
@@ -287,6 +295,7 @@ static int ospi_write_access(const struct device *dev, OSPI_RegularCmdTypeDef *c
 	}
 
 	k_sem_take(&dev_data->sync, K_FOREVER);
+	gpio_pin_set(dev_data->cs_gpio_dev, dev_data->cs_gpio_pin, 1);  // PF6 HIGH
 
 	return dev_data->cmd_status;
 }
@@ -529,6 +538,7 @@ static int stm32_ospi_wait_auto_polling(struct flash_stm32_ospi_data *dev_data,
 		OSPI_AutoPollingTypeDef *s_config, uint32_t timeout_ms)
 {
 	dev_data->cmd_status = 0;
+	gpio_pin_set(dev_data->cs_gpio_dev, dev_data->cs_gpio_pin, 0);  // PF6 LOW
 	if (HAL_OSPI_AutoPolling_IT(&dev_data->hospi, s_config) != HAL_OK) {
 		LOG_ERR("OSPI AutoPoll failed");
 		return -EIO;
@@ -540,6 +550,7 @@ static int stm32_ospi_wait_auto_polling(struct flash_stm32_ospi_data *dev_data,
 		k_sem_reset(&dev_data->sync);
 		return -EIO;
 	}
+	gpio_pin_set(dev_data->cs_gpio_dev, dev_data->cs_gpio_pin, 1);  // PF6 HIGH
 
 	/* HAL_OSPI_AutoPolling_IT enables transfer error interrupt which sets
 	 * cmd_status.
@@ -2132,6 +2143,15 @@ static int flash_stm32_ospi_init(const struct device *dev)
 		LOG_ERR("OSPI pinctrl setup failed (%d)", ret);
 		return ret;
 	}
+
+	const struct device *gpio_dev = device_get_binding("GPIOF");
+	if (!gpio_dev) {
+		LOG_ERR("Failed to get GPIOF device");
+		return -ENODEV;
+	}
+	dev_data->cs_gpio_dev = gpio_dev;
+	dev_data->cs_gpio_pin = 6;  // PF6
+	gpio_pin_configure(dev_data->cs_gpio_dev, dev_data->cs_gpio_pin, GPIO_OUTPUT_HIGH);
 
 #if STM32_OSPI_USE_DMA
 	/*
