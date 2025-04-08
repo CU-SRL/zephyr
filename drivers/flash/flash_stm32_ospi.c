@@ -2027,6 +2027,10 @@ static int spi_nor_process_bfp(const struct device *dev,
 	struct jesd216_instr read_instr = { 0 };
 	struct jesd216_bfp_dw15 dw15;
 	uint8_t addr_mode;
+<<<<<<< HEAD
+=======
+
+>>>>>>> c29d2c41237 (reverted manual cs control, and added winbond workaround)
 
 	if (flash_size != dev_cfg->flash_size) {
 		LOG_DBG("Unexpected flash size: %u", flash_size);
