@@ -1845,6 +1845,50 @@ static int stm32_ospi_write_status_register(const struct device *dev, uint8_t re
 	return ospi_write_access(dev, &s_command, regs_p, size);
 }
 
+static int stm32_ospi_program_addr_4b(const struct device *dev, bool write_enable)
+{
+	uint8_t statReg;
+	struct flash_stm32_ospi_data *data = dev->data;
+	OSPI_HandleTypeDef *hospi = &data->hospi;
+	uint8_t nor_mode = OSPI_SPI_MODE;
+	uint8_t nor_rate = OSPI_STR_TRANSFER;
+	OSPI_RegularCmdTypeDef s_command = ospi_prepare_cmd(nor_mode, nor_rate);
+
+	if (write_enable) {
+		if (stm32_ospi_write_enable(data, nor_mode, nor_rate) < 0) {
+			LOG_ERR("program_addr_4b failed to write_enable");
+			return -EIO;
+		}
+	}
+
+	/* Initialize the write enable command */
+	s_command.Instruction = SPI_NOR_CMD_4BA;
+	if (nor_mode != OSPI_OPI_MODE) {
+		/* force 1-line InstructionMode for any non-OSPI transfer */
+		s_command.InstructionMode = HAL_OSPI_INSTRUCTION_1_LINE;
+	}
+	s_command.AddressMode = HAL_OSPI_ADDRESS_NONE;
+	s_command.DataMode = HAL_OSPI_DATA_NONE;
+	s_command.DummyCycles = 0U;
+
+	if (HAL_OSPI_Command(hospi, &s_command, HAL_OSPI_TIMEOUT_DEFAULT_VALUE) != HAL_OK) {
+		LOG_ERR("OSPI Address Mode Change cmd failed");
+		return -EIO;
+	}
+
+	/* Check that ADS Bit in Status Reg 3 is now set indicating 4 Byte Address mode */
+	if (stm32_ospi_read_status_register(dev, 3, &statReg)) {
+		LOG_ERR("Status reg read failed");
+		return -EIO;
+	}
+
+	if (statReg & 0x01) {
+		return 0;
+	}
+	return -EIO;
+}
+
+
 static int stm32_ospi_enable_qe(const struct device *dev)
 {
 	struct flash_stm32_ospi_data *data = dev->data;
