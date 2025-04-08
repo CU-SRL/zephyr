@@ -1856,7 +1856,11 @@ static int stm32_ospi_program_addr_4b(const struct device *dev, bool write_enabl
 
 	if (write_enable) {
 		if (stm32_ospi_write_enable(data, nor_mode, nor_rate) < 0) {
+<<<<<<< HEAD
 			LOG_DBG("program_addr_4b failed to write_enable");
+=======
+			LOG_ERR("program_addr_4b failed to write_enable");
+>>>>>>> 0b71e08c925 (forgot the fxn)
 			return -EIO;
 		}
 	}
@@ -1872,13 +1876,21 @@ static int stm32_ospi_program_addr_4b(const struct device *dev, bool write_enabl
 	s_command.DummyCycles = 0U;
 
 	if (HAL_OSPI_Command(hospi, &s_command, HAL_OSPI_TIMEOUT_DEFAULT_VALUE) != HAL_OK) {
+<<<<<<< HEAD
 		LOG_DBG("OSPI Address Mode Change cmd failed");
+=======
+		LOG_ERR("OSPI Address Mode Change cmd failed");
+>>>>>>> 0b71e08c925 (forgot the fxn)
 		return -EIO;
 	}
 
 	/* Check that ADS Bit in Status Reg 3 is now set indicating 4 Byte Address mode */
 	if (stm32_ospi_read_status_register(dev, 3, &statReg)) {
+<<<<<<< HEAD
 		LOG_DBG("Status reg read failed");
+=======
+		LOG_ERR("Status reg read failed");
+>>>>>>> 0b71e08c925 (forgot the fxn)
 		return -EIO;
 	}
 
@@ -1888,6 +1900,10 @@ static int stm32_ospi_program_addr_4b(const struct device *dev, bool write_enabl
 	return -EIO;
 }
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 0b71e08c925 (forgot the fxn)
 static int stm32_ospi_enable_qe(const struct device *dev)
 {
 	struct flash_stm32_ospi_data *data = dev->data;
@@ -2027,11 +2043,7 @@ static int spi_nor_process_bfp(const struct device *dev,
 	struct jesd216_instr read_instr = { 0 };
 	struct jesd216_bfp_dw15 dw15;
 	uint8_t addr_mode;
-<<<<<<< HEAD
-=======
-
->>>>>>> c29d2c41237 (reverted manual cs control, and added winbond workaround)
-
+	
 	if (flash_size != dev_cfg->flash_size) {
 		LOG_DBG("Unexpected flash size: %u", flash_size);
 	}
